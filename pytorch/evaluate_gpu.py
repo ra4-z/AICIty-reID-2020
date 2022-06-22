@@ -18,7 +18,7 @@ def evaluate(score,ql,qc,gl,gc):
     if qc == -1: #VeID has no camera ID
         camera_index = []
     good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
-    junk_index1 = np.argwhere(gl==-1)
+    junk_index1 = np.argwhere(gl==-1) # those with no label
     junk_index2 = np.intersect1d(query_index, camera_index)
     junk_index = np.append(junk_index2, junk_index1) #.flatten())
 

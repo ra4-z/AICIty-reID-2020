@@ -92,13 +92,10 @@ class ft_net(nn.Module):
             self.model = model_ft
             self.classifier = ClassBlock(2048, class_num, droprate)
 
-        self.flag = False
         if init_model!=None:
-            self.flag = True
             self.model = init_model.model
             self.pool = init_model.pool
             self.classifier.add_block = init_model.classifier.add_block
-            self.new_dropout = nn.Sequential(nn.Dropout(p = droprate))
         # avg pooling to global pooling
 
     def forward(self, x):
@@ -118,12 +115,7 @@ class ft_net(nn.Module):
         elif self.pool == 'avg':
             x = self.model.avgpool(x)
             x = x.view(x.size(0), x.size(1))
-        if self.flag:
-            x = self.classifier.add_block(x)
-            x = self.new_dropout(x)
-            x = self.classifier.classifier(x)
-        else:
-            x = self.classifier(x)
+        x = self.classifier(x)
         return x
 
 # Define the ResNet50  Model with angle loss
@@ -210,13 +202,10 @@ class ft_net_dense(nn.Module):
             self.model = model_ft
             self.classifier = ClassBlock(1024, class_num, droprate)
 
-        self.flag = False
         if init_model!=None:
-            self.flag = True
             self.model = init_model.model
             self.pool = init_model.pool
             self.classifier.add_block = init_model.classifier.add_block
-            self.new_dropout = nn.Sequential(nn.Dropout(p = droprate))
 
     def forward(self, x):
         if self.pool == 'avg':
@@ -227,12 +216,7 @@ class ft_net_dense(nn.Module):
             x2 = self.model.maxpool2(x)
             x = torch.cat((x1,x2), dim = 1)
         x = x.view(x.size(0), x.size(1))
-        if self.flag:
-            x = self.classifier.add_block(x)
-            x = self.new_dropout(x)
-            x = self.classifier.classifier(x)
-        else:
-            x = self.classifier(x)
+        x = self.classifier(x)
         return x
 
 class ft_net_EF4(nn.Module):
@@ -330,41 +314,19 @@ class ft_net_SE(nn.Module):
         #model_ft.dropout = nn.Sequential()
         model_ft.last_linear = nn.Sequential()
         self.model = model_ft
-        self.pool  = pool
         # For DenseNet, the feature dim is 2048
-        if pool == 'avg+max':
-            self.classifier = ClassBlock(4096, class_num, droprate)
-        else:
-            self.classifier = ClassBlock(2048, class_num, droprate)
-        self.flag = False
+        self.classifier = ClassBlock(2048, class_num, droprate)
+
         if init_model!=None:
-            self.flag = True
             self.model = init_model.model
             self.classifier.add_block = init_model.classifier.add_block
-            self.new_dropout = nn.Sequential(nn.Dropout(p = droprate))
 
     def forward(self, x):
-        x = self.model.features(x)
-        if self.pool == 'avg+max':
-            x1 = self.model.avg_pool2(x)
-            x2 = self.model.max_pool2(x)
-            x = torch.cat((x1,x2), dim = 1)
-        else:
-            x = self.model.avg_pool(x)
+        x = self.model(x)
         x = x.view(x.size(0), x.size(1))
-
-        # when inferencing
-        if not self.model.training:
-            return x
-
         # Convolution layers
         # Pooling and final linear layer
-        if self.flag:
-            x = self.classifier.add_block(x)
-            x = self.new_dropout(x)
-            x = self.classifier.classifier(x)
-        else:
-            x = self.classifier(x)
+        x = self.classifier(x)
         return x
 
 # Define the SE-based Model
@@ -526,33 +488,28 @@ class CPB(nn.Module):
 
         self.part = 4 # We cut the pool5 to 4 parts
         #model_ft = models.resnet50(pretrained=True)
-        #self.model = EfficientNet.from_pretrained('efficientnet-b5')
-        #self.model._fc = nn.Sequential()
+        self.model = EfficientNet.from_pretrained('efficientnet-b5')
+        self.model._fc = nn.Sequential()
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
-        model_name = 'se_resnext101_32x4d' # could be fbresnet152 or inceptionresnetv2
-        model_ft = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
-        model_ft.layer4[0].conv2.stride = (1,1)
-        model_ft.layer4[0].downsample[0].stride = (1,1)
-        self.model = model_ft
-       #self.dropout = nn.Dropout(p=0.5)
+        #self.dropout = nn.Dropout(p=0.5)
         # remove the final downsample
         #self.model.layer4[0].downsample[0].stride = (1,1)
         #self.model.layer4[0].conv2.stride = (1,1)
         # define 6 classifiers
         for i in range(self.part):
             name = 'classifier'+str(i)
-            setattr(self, name, ClassBlock(2048, class_num, droprate=0.2, relu=False, bnorm=True, num_bottleneck=512))
+            setattr(self, name, ClassBlock(2048, class_num, droprate=0.5, relu=False, bnorm=True, num_bottleneck=512))
 
     def forward(self, x):
-        x =  self.model.features(x)
+        x =  self.model.extract_features(x)
         #x = self.dropout(x)
         #print(x.shape)
         part = {}
         predict = {}
-        d = 2+2+2
+        d = 1+1+1
         for i in range(self.part):
             N,C,H,W = x.shape
-            p = 2 #max(2-i,1)
+            p = 1 #max(2-i,1)
             if i==0:
                 part_input = x[:,:,d:W-d,d:H-d]
                 part[i] = torch.squeeze(self.avgpool(part_input))
@@ -587,4 +544,3 @@ if __name__ == '__main__':
     input = Variable(torch.FloatTensor(4, 3, 320, 320))
     output = net(input)
     print('net output size:')
-    #print(output.shape)

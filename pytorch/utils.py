@@ -50,7 +50,7 @@ def save_network(network, dirname, epoch_label):
 #---------------------------
 def load_network(name, opt):
     # Load config
-    dirname = os.path.join('./data/outputs',name)
+    dirname = os.path.join('/home/AICIty-reID-2020/pytorch/',name)
     last_model_name = os.path.basename(get_model_list(dirname, 'net'))
     epoch = last_model_name.split('_')[1]
     epoch = epoch.split('.')[0]
@@ -137,7 +137,7 @@ def load_network(name, opt):
     else:
         save_filename = 'net_%s.pth'% epoch
 
-    save_path = os.path.join('./data/outputs',name,save_filename)
+    save_path = os.path.join('/home/AICIty-reID-2020/pytorch',name,save_filename)
     print('Load the model from %s'%save_path)
     network = model
     try:
