@@ -1,0 +1,4 @@
+./pytorch/__pycache__/*
+./pytorch/data/*
+./pytorch/res/*
+./pytorch/SE_imbalance_s1_384_p0.5_lr2_mt_d0_b24+v+aug/net_last.pth
